@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Hands } from "@mediapipe/hands";
-import { Camera } from "@mediapipe/camera_utils";
 
 const WIDTH = 640;
 const HEIGHT = 480;
@@ -44,7 +42,6 @@ export default function GameWithCamera() {
 
     const g = gameState;
 
-    // Bird follows finger Y position
     if (fingerYRef.current !== null) {
       g.birdY = Math.min(Math.max(fingerYRef.current, BIRD_RADIUS), HEIGHT - BIRD_RADIUS);
     }
@@ -71,19 +68,16 @@ export default function GameWithCamera() {
 
     ctx.clearRect(0, 0, WIDTH, HEIGHT);
 
-    // Draw pipes
     ctx.fillStyle = "green";
     ctx.fillRect(g.pipeX, 0, PIPE_WIDTH, g.pipeHeight);
     ctx.fillRect(g.pipeX, pipeBottom, PIPE_WIDTH, HEIGHT - pipeBottom);
 
-    // Draw bird
     ctx.beginPath();
     ctx.arc(100, g.birdY, BIRD_RADIUS, 0, 2 * Math.PI);
     ctx.fillStyle = "blue";
     ctx.fill();
     ctx.closePath();
 
-    // Draw finger position
     if (fingerPositionRef.current) {
       const { x, y } = fingerPositionRef.current;
       ctx.beginPath();
@@ -93,7 +87,6 @@ export default function GameWithCamera() {
       ctx.closePath();
     }
 
-    // Draw score
     ctx.fillStyle = "black";
     ctx.font = "24px Arial";
     ctx.fillText(`Score: ${g.score}`, 10, 30);
@@ -102,7 +95,6 @@ export default function GameWithCamera() {
       ctx.fillStyle = "red";
       ctx.font = "36px Arial";
       ctx.fillText("Game Over", 180, 200);
-      // ctx.fillText("Press R to Restart", 180, 240);
     } else {
       requestAnimationFrame(loop);
     }
@@ -111,38 +103,46 @@ export default function GameWithCamera() {
   };
 
   useEffect(() => {
-    const hands = new Hands({
-      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
-    });
+    const loadMediapipe = async () => {
+      if (typeof window === "undefined") return;
 
-    hands.setOptions({
-      maxNumHands: 1,
-      modelComplexity: 1,
-      minDetectionConfidence: 0.5,
-      minTrackingConfidence: 0.5,
-    });
-
-    hands.onResults((results) => {
-      if (results.multiHandLandmarks.length > 0) {
-        const indexFinger = results.multiHandLandmarks[0][8];
-        const x = indexFinger.x * WIDTH;
-        const y = indexFinger.y * HEIGHT;
-        fingerYRef.current = y;
-        fingerPositionRef.current = { x, y };
-      }
-    });
-
-    if (videoRef.current) {
-      const camera = new Camera(videoRef.current, {
-        onFrame: async () => {
-          await hands.send({ image: videoRef.current! });
-        },
-        width: WIDTH,
-        height: HEIGHT,
+      // @ts-ignore
+      const hands = new window.Hands({
+        locateFile: (file: string) =>
+          `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
       });
-      camera.start();
-    }
 
+      hands.setOptions({
+        maxNumHands: 1,
+        modelComplexity: 1,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5,
+      });
+
+      hands.onResults((results: any) => {
+        if (results.multiHandLandmarks.length > 0) {
+          const indexFinger = results.multiHandLandmarks[0][8];
+          const x = indexFinger.x * WIDTH;
+          const y = indexFinger.y * HEIGHT;
+          fingerYRef.current = y;
+          fingerPositionRef.current = { x, y };
+        }
+      });
+
+      if (videoRef.current) {
+        // @ts-ignore
+        const camera = new window.Camera(videoRef.current, {
+          onFrame: async () => {
+            await hands.send({ image: videoRef.current });
+          },
+          width: WIDTH,
+          height: HEIGHT,
+        });
+        camera.start();
+      }
+    };
+
+    loadMediapipe();
     requestAnimationFrame(loop);
   }, []);
 
@@ -157,10 +157,22 @@ export default function GameWithCamera() {
   return (
     <div className="flex gap-4">
       <div>
-        <video ref={videoRef} width={WIDTH} height={HEIGHT} autoPlay muted className="rounded-xl" />
+        <video
+          ref={videoRef}
+          width={WIDTH}
+          height={HEIGHT}
+          autoPlay
+          muted
+          className="rounded-xl"
+        />
       </div>
       <div>
-        <canvas ref={canvasRef} width={WIDTH} height={HEIGHT} className="rounded-xl border border-black" />
+        <canvas
+          ref={canvasRef}
+          width={WIDTH}
+          height={HEIGHT}
+          className="rounded-xl border border-black"
+        />
       </div>
     </div>
   );
